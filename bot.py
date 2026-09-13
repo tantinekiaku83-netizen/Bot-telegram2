@@ -34,12 +34,10 @@ state = {
     "msg_gale": None
 }
 
-# Tradutor universal para converter as letras (A/V/E) para os emojis do bot
 def traduzir_sequencia(seq_str):
     mapa = {'A': '🔵', 'V': '🔴', 'E': '🟡'}
     return [mapa.get(c, c) for c in seq_str]
 
-# Lista expandida com os seus 579 padrões
 PADROES_RAW = [
     "AVVVAVV=V", "VVVAVVA=V", "AVVAAVV=V", "AVVVVAV=A", "AAVVVAV=V", "VVAVVAV=A", "VVAAVVV=V", "AVAVAAV=A", "AAVAVAA=A", "VVAVVAA=V", 
     "AAVVAAA=V", "AVAAVAA=A", "VAAAVAA=A", "VAVVAVA=A", "AVAAAVA=A", "AAAAVAV=V", "AAAVVVA=A", "VAAVVVA=V", "VAVAAVA=V", "VAVVVAV=V", 
@@ -166,6 +164,7 @@ async def processar_resultado(cor):
 
     elif state["gale_step"] == 0:
         state["gale_step"] = 1
+        await delete_msg(state["msg_gale"])
         state["msg_gale"] = await send_msg("⚠️ <b>VAMOS PARA O GALE 1</b>")
     
     elif state["gale_step"] == 1:
@@ -200,13 +199,14 @@ def fetch_api_data():
         }
     )
     try:
-        with urllib.request.urlopen(req, timeout=2) as response:
+        with urllib.request.urlopen(req, timeout=4) as response:
             if response.status == 200:
                 raw = response.read().decode("utf-8")
                 return json.loads(raw)
+    except urllib.error.HTTPError as e:
+        log.warning(f"API retornou erro HTTP {e.code}: {e.reason}")
     except Exception as e:
-        log.error(f"Erro na requisição HTTP: {e}")
-        return None
+        log.warning(f"Aviso de conexão com a API: {e}")
     return None
 
 async def main():
@@ -247,9 +247,9 @@ async def main():
                                         state["waiting"] = True
                                         state["gale_step"] = 0
                                         
-                                        # Apaga a mensagem de "Analisando..." se houver uma ativa
-                                        await delete_msg(state["msg_analise"])
-                                        state["msg_analise"] = None
+                                        if state["msg_analise"]:
+                                            await delete_msg(state["msg_analise"])
+                                            state["msg_analise"] = None
 
                                         entrada = (f"🚀 <b>ENTRADA CONFIRMADA</b>\n\n"
                                                    f"Apostar: {p['sinal']}\n"
@@ -259,18 +259,16 @@ async def main():
                                         found = True
                                         break
                                 
-                                # Se nenhum padrão foi encontrado, envia a mensagem de analise caso ela já não exista
                                 if not found and not state["msg_analise"]:
                                     state["msg_analise"] = await send_msg("🔍 <b>Analisando padrões...</b>")
 
         except Exception as e:
-            log.error(f"Erro no loop principal: {e}")
+            log.error(f"Erro crítico no loop principal: {e}")
             
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Aplicação encerrada manualmente.")
-    
