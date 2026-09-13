@@ -210,7 +210,6 @@ async def background_worker(app):
         await asyncio.sleep(1)
 
 async def main():
-    # Inicializacao moderna compativel com versoes recentes do Telegram
     app = Application.builder().token(TOKEN).build()
     await app.initialize()
     await app.start()
@@ -227,3 +226,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Aplicação encerrada manualmente.")
+        
