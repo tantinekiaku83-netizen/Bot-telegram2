@@ -4,9 +4,8 @@ import logging
 import json
 import urllib.request
 import urllib.error
-import socket
 from datetime import datetime, timedelta
-from telegram.ext import Application
+from telegram import Bot
 
 # ================= CONFIGURAÇÃO =================
 TOKEN = "8864077129:AAGynp2700ocgTeh-0aWoTkD-UwE95_jeuQ"
@@ -16,6 +15,8 @@ API_URL = "https://api-cs.casino.org/svc-evolution-game-events/api/bacbo/latest"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger("SUPREMO-V4")
+
+bot = Bot(token=TOKEN)
 
 state = {
     "history": [],
@@ -56,33 +57,32 @@ PADROES = [
     {"seq": ["🔴","🔵"], "sinal": "🔴"}
 ]
 
-async def send_msg(app, text):
+async def send_msg(text):
     try: 
-        return await app.bot.send_message(CHAT_ID, text, parse_mode="HTML")
+        m = await bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
+        return m.message_id
     except Exception as e:
         log.error(f"Erro ao enviar mensagem: {e}")
         return None
 
-async def delete_msg(app, mid):
+async def delete_msg(mid):
     if mid:
         try: 
-            await app.bot.delete_message(CHAT_ID, mid)
+            await bot.delete_message(chat_id=CHAT_ID, message_id=mid)
         except Exception: 
             pass
 
-async def enviar_placar(app):
+async def enviar_placar():
     if state["msg_placar"]: 
-        await delete_msg(app, state["msg_placar"])
+        await delete_msg(state["msg_placar"])
     
     texto = (f"🏆 <b>PLACAR ATUALIZADO</b>\n\n"
              f"✅ 𝗚𝗥𝗘𝗘𝗡𝗦: {state['wins']}\n"
              f"❌ 𝗟𝗢𝗦𝗦: {state['losses']}")
     
-    msg = await send_msg(app, texto)
-    if msg: 
-        state["msg_placar"] = msg.message_id
+    state["msg_placar"] = await send_msg(texto)
 
-async def processar_resultado(app, cor):
+async def processar_resultado(cor):
     if cor == "🟡" or cor == state["target"]:
         state["wins"] += 1
         state["streak"] += 1
@@ -100,34 +100,32 @@ async def processar_resultado(app, cor):
                            f"🔥 𝗣𝗔𝗚𝗢𝗢𝗢! 🔥 ({tipo})\n\n"
                            f"🚀 TOMAA! {state['streak']} GREENS SEGUIDOS 🚀")
         
-        await send_msg(app, msg_vitoria)
-        await delete_msg(app, state["msg_analise"])
-        await delete_msg(app, state["msg_gale"])
+        await send_msg(msg_vitoria)
+        await delete_msg(state["msg_analise"])
+        await delete_msg(state["msg_gale"])
         state.update({"waiting": False, "is_gale": False, "msg_analise": None, "msg_gale": None})
-        await enviar_placar(app)
+        await enviar_placar()
 
     elif not state["is_gale"]:
         state["is_gale"] = True
-        msg_g = await send_msg(app, "⚠️ <b>VAMOS PARA O GALE 1</b>")
-        if msg_g: 
-            state["msg_gale"] = msg_g.message_id
+        state["msg_gale"] = await send_msg("⚠️ <b>VAMOS PARA O GALE 1</b>")
     
     else:
         state["losses"] += 1
         state["streak"] = 0
         state["streak_loss"] += 1
         
-        await send_msg(app, "❌ <b>LOSS!</b>")
-        await delete_msg(app, state["msg_analise"])
-        await delete_msg(app, state["msg_gale"])
+        await send_msg("❌ <b>LOSS!</b>")
+        await delete_msg(state["msg_analise"])
+        await delete_msg(state["msg_gale"])
         state.update({"waiting": False, "is_gale": False, "msg_analise": None, "msg_gale": None})
 
         if state["streak_loss"] >= 2:
             state["pause_until"] = datetime.now() + timedelta(minutes=10)
-            await send_msg(app, "🛑 <b>PAUSA DE SEGURANÇA (10 MIN)</b>\n2 Reds seguidos. Preservando a banca!")
+            await send_msg("🛑 <b>PAUSA DE SEGURANÇA (10 MIN)</b>\n2 Reds seguidos. Preservando a banca!")
             state["streak_loss"] = 0
             
-        await enviar_placar(app)
+        await enviar_placar()
 
 def fetch_api_data():
     req = urllib.request.Request(
@@ -146,7 +144,10 @@ def fetch_api_data():
         return None
     return None
 
-async def background_worker(app):
+async def main():
+    log.info("Bot iniciado com sucesso.")
+    await enviar_placar()
+    
     while True:
         if state["pause_until"]:
             if datetime.now() < state["pause_until"]:
@@ -154,7 +155,7 @@ async def background_worker(app):
                 continue
             else:
                 state["pause_until"] = None
-                await send_msg(app, "🔄 <b>BOT ONLINE - REINICIANDO ANÁLISES</b>")
+                await send_msg("🔄 <b>BOT ONLINE - REINICIANDO ANÁLISES</b>")
 
         try:
             data = await asyncio.to_thread(fetch_api_data)
@@ -180,7 +181,7 @@ async def background_worker(app):
                                 state["history"] = state["history"][-20:]
                             
                             if state["waiting"]:
-                                await processar_resultado(app, cor)
+                                await processar_resultado(cor)
                             else:
                                 found = False
                                 for p in PADROES:
@@ -188,42 +189,27 @@ async def background_worker(app):
                                         state["target"] = p["sinal"]
                                         state["waiting"] = True
                                         
-                                        await delete_msg(app, state["msg_analise"])
+                                        await delete_msg(state["msg_analise"])
                                         state["msg_analise"] = None
 
                                         entrada = (f"🚀 <b>ENTRADA CONFIRMADA</b>\n\n"
                                                    f"Apostar: {p['sinal']}\n"
                                                    f"Proteção: 🟡 Empate\n"
                                                    f"Limite: 1 Gale")
-                                        await send_msg(app, entrada)
+                                        await send_msg(entrada)
                                         found = True
                                         break
                                 
                                 if not found and not state["msg_analise"]:
-                                    msg_a = await send_msg(app, "🔍 <b>Analisando padrões...</b>")
-                                    if msg_a: 
-                                        state["msg_analise"] = msg_a.message_id
+                                    state["msg_analise"] = await send_msg("🔍 <b>Analisando padrões...</b>")
 
         except Exception as e:
             log.error(f"Erro na captura dos dados: {e}")
             
         await asyncio.sleep(1)
 
-async def main():
-    app = Application.builder().token(TOKEN).build()
-    await app.initialize()
-    await app.start()
-    
-    try:
-        await enviar_placar(app)
-        await background_worker(app)
-    finally:
-        await app.stop()
-        await app.shutdown()
-
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Aplicação encerrada manualmente.")
-        
