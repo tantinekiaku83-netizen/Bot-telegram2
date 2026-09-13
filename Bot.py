@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from telegram.ext import Application
 
 # ================= CONFIGURAÇÃO =================
-TOKEN = "8962323758:AAEg2c5i3vk_Wn1JaMr0IkRYj7vLHhMyp6k"
-CHAT_ID = "-1004403777438"
+TOKEN = "8864077129:AAGMv6t9q-ZjirwsZVuYuFU3kdHIjs3nDQQ"
+CHAT_ID = "-1003954099833"
 
 # URL da API de resultados
 API_URL = "https://api-cs.casino.org/svc-evolution-game-events/api/bacbo/latest"
