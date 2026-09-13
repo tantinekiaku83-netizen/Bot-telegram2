@@ -12,7 +12,6 @@ from telegram.ext import Application
 TOKEN = "8864077129:AAGMv6t9q-ZjirwsZVuYuFU3kdHIjs3nDQQ"
 CHAT_ID = "-1003954099833"
 
-# URL da API de resultados
 API_URL = "https://api-cs.casino.org/svc-evolution-game-events/api/bacbo/latest"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -140,11 +139,10 @@ def fetch_api_data():
         }
     )
     try:
-        # Timeout curto (2s) para evitar travamentos e atrasos na leitura do bot
         with urllib.request.urlopen(req, timeout=2) as response:
             if response.status == 200:
                 return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, socket.timeout, Exception) as e:
+    except Exception:
         return None
     return None
 
@@ -170,7 +168,6 @@ async def background_worker(app):
                         result_block = d.get("result", {})
                         res_raw = result_block.get("outcome") if isinstance(result_block, dict) else None
                         
-                        # Mapeamento do resultado aceitando o padrao da API em Ingles e Portugues
                         cor = {
                             "PlayerWon": "🔵", "Jogador": "🔵", "Player": "🔵",
                             "BankerWon": "🔴", "Bancao": "🔴", "Banker": "🔴",
@@ -213,6 +210,7 @@ async def background_worker(app):
         await asyncio.sleep(1)
 
 async def main():
+    # Inicializacao moderna compativel com versoes recentes do Telegram
     app = Application.builder().token(TOKEN).build()
     await app.initialize()
     await app.start()
