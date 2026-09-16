@@ -5,7 +5,7 @@ import logging
 import json
 import urllib.request
 import urllib.error
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from telegram import Bot
 
 # ================= CONFIGURAÇÃO (RAILWAY & ENV) =================
@@ -31,7 +31,8 @@ state = {
     "pause_until": None,
     "msg_placar": None,
     "msg_analise": None,
-    "msg_gale": None
+    "msg_gale": None,
+    "last_reset_day": None
 }
 
 # ================= BANCO DE ESTRATÉGIAS TURBINADO (G2) =================
@@ -171,6 +172,19 @@ async def main():
     
     while True:
         try:
+            # RESET AUTOMÁTICO DO PLACAR ÀS 00:00 (HORÁRIO DE ANGOLA - UTC+1)
+            hoje_angola = datetime.now(timezone(timedelta(hours=1))).date()
+            if state["last_reset_day"] is None:
+                state["last_reset_day"] = hoje_angola
+            elif state["last_reset_day"] != hoje_angola:
+                state["wins"] = 0
+                state["losses"] = 0
+                state["streak"] = 0
+                state["streak_loss"] = 0
+                state["last_reset_day"] = hoje_angola
+                await send_msg("🔄 <b>PLACAR ZERADO!</b>\nNovo dia iniciado (00:00 - Horário de Angola).")
+                await enviar_placar()
+
             if state["pause_until"]:
                 if datetime.now() < state["pause_until"]:
                     await asyncio.sleep(5)
@@ -239,3 +253,8 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         log.info("Aplicação encerrada manualmente.")
+
+
+
+#CRIADOR : CRISTÓVÃO MIGUEL 🇧🇷🇦🇴
+#WHATSAPP: +244951868182
