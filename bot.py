@@ -175,10 +175,10 @@ async def enviar_placar():
     assertividade = (state["wins"] / total_jogadas * 100) if total_jogadas > 0 else 0.0
 
     texto = (
-        f"📊 <b>RELATÓRIO</b>\n\n"
+        f"📊 <b>PLACAR DO DIA 🛸</b>\n\n"
         f"✅ <b>Vitórias:</b> {state['wins']}\n"
         f"❌ <b>Derrotas:</b> {state['losses']}\n\n"
-        f"_______________________________"
+        
         f"<b>SG:</b> {state['wins_sg']}\n"
         f"<b>G1:</b> {state['wins_g1']}\n"
         f"<b>G2:</b> {state['wins_g2']}\n\n"
