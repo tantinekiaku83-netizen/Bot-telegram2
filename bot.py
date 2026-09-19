@@ -25,10 +25,10 @@ state = {
     "target": None,
     "gale_step": 0,    # 0 = SG, 1 = G1, 2 = G2
     "wins": 0,
-    "wins_sg": 0,      # Greens diretos + Empate no SG
-    "wins_g1": 0,      # Greens no Gale 1 + Empate no G1
-    "wins_g2": 0,      # Greens no Gale 2 + Empate no G2
-    "wins_tie": 0,     # Histórico de Empates
+    "wins_sg": 0,      # Greens diretos
+    "wins_g1": 0,      # Greens no Gale 1
+    "wins_g2": 0,      # Greens no Gale 2
+    "wins_tie": 0,     # Vitórias no Empate
     "losses": 0,
     "streak": 0,
     "streak_loss": 0,
@@ -126,10 +126,9 @@ PADROES = [
     {"seq": ["🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔴", "🔴", "🔴"], "sinal": "🔵"},
     {"seq": ["🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔵", "🔵", "🔵"], "sinal": "🔴"},
 
-    # ================= RAMPA 1*2*3*4 =================
-    {"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔴"], "sinal": "🔵"},
-    {"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔵"], "sinal": "🔴"},
-
+#=============== RAMPA 1*2*3*4
+{"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔴"], "sinal": "🔵"},
+{"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔵"], "sinal": "🔴"},
     # ================= RAMPA 1*2*3*2*1 =================
     {"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔵"], "sinal": "🔴"},
     {"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔴"], "sinal": "🔵"},
@@ -149,6 +148,8 @@ PADROES = [
     # ================= PADRÃO 2*1*1*2 =================
     {"seq": ["🔵", "🔵", "🔴", "🔵", "🔴", "🔴"], "sinal": "🔵"},
     {"seq": ["🔴", "🔴", "🔵", "🔴", "🔵", "🔵"], "sinal": "🔴"},
+
+
 ]
 
 # ================= FUNÇÕES DE ENVIO E MENSAGENS =================
@@ -171,19 +172,10 @@ async def enviar_placar():
     if state["msg_placar"]: 
         await delete_msg(state["msg_placar"])
     
-    total_jogadas = state["wins"] + state["losses"]
-    assertividade = (state["wins"] / total_jogadas * 100) if total_jogadas > 0 else 0.0
+    texto = (f"🏆 <b>PLACAR ATUALIZADO</b>\n\n"
+             f"✅ 𝗚𝗥𝗘𝗘𝗡𝗦: <b>{state['wins']}</b>\n"
 
-    texto = (
-        f"📊 <b>PLACAR DO DIA 🛸</b>\n\n"
-        f"✅ <b>Vitórias:</b> {state['wins']}\n"
-        f"❌ <b>Derrotas:</b> {state['losses']}\n\n"
-        
-        f"<b>SG:</b> {state['wins_sg']}\n"
-        f"<b>G1:</b> {state['wins_g1']}\n"
-        f"<b>G2:</b> {state['wins_g2']}\n\n"
-        
-    )
+             f"❌ 𝗟𝗢𝗦𝗦: <b>{state['losses']}</b>")
     
     state["msg_placar"] = await send_msg(texto)
 
@@ -193,7 +185,7 @@ async def processar_resultado(cor):
         state["streak"] += 1
         state["streak_loss"] = 0 
         
-        # Registra o tipo correto do Green (Empate conta como Green no passo atual)
+        # Registra o tipo correto do Green
         if state["gale_step"] == 0:
             state["wins_sg"] += 1
             tipo = "SG"
@@ -290,13 +282,19 @@ async def main():
                 assertividade = (total_greens / total_jogadas * 100) if total_jogadas > 0 else 0.0
 
                 relatorio_dia = (
+                    
                     f"📊 <b>RELATÓRIO DO DIA ANTERIOR ({data_str})</b>\n\n"
-                    f"✅ <b>Vitórias:</b> {total_greens}\n"
-                    f"❌ <b>Derrotas:</b> {total_reds}\n\n"
-                    f"<b>SG:</b> {state['wins_sg']}\n"
-                    f"<b>G1:</b> {state['wins_g1']}\n"
-                    f"<b>G2:</b> {state['wins_g2']}\n\n"
-                
+                    
+                    f"✅ TOTAL GREENS: <b>{total_greens}</b>\n"
+                    f"🟠 Empates: <b>{state['wins_tie']}</b>\n"
+                    f"❌ TOTAL LOSS: <b>{total_reds}</b>\n"
+                    
+                    f"-----------------------------\n"
+                    f"🎯 GREEN SEM GALE: <b>{state['wins_sg']}</b>\n"
+                    f"🔁 GREEN NO G1: <b>{state['wins_g1']}</b>\n"
+                    f"🔁 GREEN NO G2: <b>{state['wins_g2']}</b>\n"
+                    f"-----------------------------\n"
+                    
                     f"🔄 <i>Placar zerado para as operações de hoje!</i>"
                 )
                 await send_msg(relatorio_dia)
