@@ -10,7 +10,7 @@ from telegram import Bot
 
 # ================= CONFIGURAÇÃO (RAILWAY & ENV) =================
 TOKEN = os.getenv("TELEGRAM_TOKEN", "8864077129:AAGynp2700ocgTeh-0aWoTkD-UwE95_jeuQ")
-CHAT_ID = os.getenv("CHAT_ID", "-1004465522184")
+CHAT_ID = os.getenv("CHAT_ID", "-1004424432080")
 API_URL = os.getenv("API_URL", "https://api-cs.casino.org/svc-evolution-game-events/api/bacbo/latest")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,10 +25,10 @@ state = {
     "target": None,
     "gale_step": 0,    # 0 = SG, 1 = G1, 2 = G2
     "wins": 0,
-    "wins_sg": 0,      # Greens diretos
-    "wins_g1": 0,      # Greens no Gale 1
-    "wins_g2": 0,      # Greens no Gale 2
-    "wins_tie": 0,     # Vitórias no Empate
+    "wins_sg": 0,      # Greens diretos + Empate no SG
+    "wins_g1": 0,      # Greens no Gale 1 + Empate no G1
+    "wins_g2": 0,      # Greens no Gale 2 + Empate no G2
+    "wins_tie": 0,     # Histórico de Empates
     "losses": 0,
     "streak": 0,
     "streak_loss": 0,
@@ -58,8 +58,6 @@ PADROES = [
     {"seq": ["🔵","🔴","🔵","🔵"], "sinal": "🔴"}, {"seq": ["🔴","🔵","🔴","🔴"], "sinal": "🔵"},
     
     # ESTRATÉGIAS DE REPETIÇÃO
-    {"seq": ["🔵","🔴","🔵","🔴","🔵"], "sinal": "🔵"},
-    {"seq": ["🔴","🔵","🔴","🔵","🔴"], "sinal": "🔴"},
     {"seq": ["🔵","🔵","🔵","🔴","🔴","🔴"], "sinal": "🔵"},
     {"seq": ["🔴","🔴","🔴","🔵","🔵","🔵"], "sinal": "🔴"},
 
@@ -128,9 +126,10 @@ PADROES = [
     {"seq": ["🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔴", "🔴", "🔴"], "sinal": "🔵"},
     {"seq": ["🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔵", "🔵", "🔵"], "sinal": "🔴"},
 
-#=============== RAMPA 1*2*3*4
-{"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔴"], "sinal": "🔵"},
-{"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔵"], "sinal": "🔴"},
+    # ================= RAMPA 1*2*3*4 =================
+    {"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔴", "🔴"], "sinal": "🔵"},
+    {"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔵", "🔵"], "sinal": "🔴"},
+
     # ================= RAMPA 1*2*3*2*1 =================
     {"seq": ["🔵", "🔴", "🔴", "🔵", "🔵", "🔵", "🔴", "🔴", "🔵"], "sinal": "🔴"},
     {"seq": ["🔴", "🔵", "🔵", "🔴", "🔴", "🔴", "🔵", "🔵", "🔴"], "sinal": "🔵"},
@@ -150,8 +149,6 @@ PADROES = [
     # ================= PADRÃO 2*1*1*2 =================
     {"seq": ["🔵", "🔵", "🔴", "🔵", "🔴", "🔴"], "sinal": "🔵"},
     {"seq": ["🔴", "🔴", "🔵", "🔴", "🔵", "🔵"], "sinal": "🔴"},
-
-
 ]
 
 # ================= FUNÇÕES DE ENVIO E MENSAGENS =================
@@ -174,10 +171,19 @@ async def enviar_placar():
     if state["msg_placar"]: 
         await delete_msg(state["msg_placar"])
     
-    texto = (f"🏆 <b>PLACAR ATUALIZADO</b>\n\n"
-             f"✅ 𝗚𝗥𝗘𝗘𝗡𝗦: <b>{state['wins']}</b>\n"
+    total_jogadas = state["wins"] + state["losses"]
+    assertividade = (state["wins"] / total_jogadas * 100) if total_jogadas > 0 else 0.0
 
-             f"❌ 𝗟𝗢𝗦𝗦: <b>{state['losses']}</b>")
+    texto = (
+        f"📊 <b>RELATÓRIO</b>\n\n"
+        f"✅ <b>Vitórias:</b> {state['wins']}\n"
+        f"❌ <b>Derrotas:</b> {state['losses']}\n\n"
+        f"_______________________________"
+        f"<b>SG:</b> {state['wins_sg']}\n"
+        f"<b>G1:</b> {state['wins_g1']}\n"
+        f"<b>G2:</b> {state['wins_g2']}\n\n"
+        
+    )
     
     state["msg_placar"] = await send_msg(texto)
 
@@ -187,7 +193,7 @@ async def processar_resultado(cor):
         state["streak"] += 1
         state["streak_loss"] = 0 
         
-        # Registra o tipo correto do Green
+        # Registra o tipo correto do Green (Empate conta como Green no passo atual)
         if state["gale_step"] == 0:
             state["wins_sg"] += 1
             tipo = "SG"
@@ -230,7 +236,7 @@ async def processar_resultado(cor):
         state["streak"] = 0
         state["streak_loss"] += 1
         
-        await send_msg("❌ <b>LOSS NO G2!</b>")
+        await send_msg("❌ <b>LOSS, A MESA NÃO RESPEITOU!</b>")
         await delete_msg(state["msg_analise"])
         await delete_msg(state["msg_gale"])
         state.update({"waiting": False, "gale_step": 0, "msg_analise": None, "msg_gale": None})
@@ -285,15 +291,12 @@ async def main():
 
                 relatorio_dia = (
                     f"📊 <b>RELATÓRIO DO DIA ANTERIOR ({data_str})</b>\n\n"
-                    f"🎯 GREEN SEM GALE: <b>{state['wins_sg']}</b>\n"
-                    f"🔁 GREEN NO G1: <b>{state['wins_g1']}</b>\n"
-                    f"🔁 GREEN NO G2: <b>{state['wins_g2']}</b>\n"
-                    f"🟠 Empates: <b>{state['wins_tie']}</b>\n"
-                    f"-----------------------------\n"
-                    f"✅ TOTAL GREENS: <b>{total_greens}</b>\n"
-
-                    f"❌ TOTAL LOSS: <b>{total_reds}</b>\n"
-                    
+                    f"✅ <b>Vitórias:</b> {total_greens}\n"
+                    f"❌ <b>Derrotas:</b> {total_reds}\n\n"
+                    f"<b>SG:</b> {state['wins_sg']}\n"
+                    f"<b>G1:</b> {state['wins_g1']}\n"
+                    f"<b>G2:</b> {state['wins_g2']}\n\n"
+                
                     f"🔄 <i>Placar zerado para as operações de hoje!</i>"
                 )
                 await send_msg(relatorio_dia)
