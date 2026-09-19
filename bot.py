@@ -156,9 +156,8 @@ PADROES = [
 
 # ================= FUNÇÕES DE ENVIO E MENSAGENS =================
 async def send_msg(text):
-    try: 
-        m = await
-bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
+    try:
+        m = await bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
         return m.message_id
     except Exception as e:
         log.error(f"Erro ao enviar mensagem: {e}")
